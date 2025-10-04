@@ -12,7 +12,7 @@ server.config['MYSQL_PASSWORD'] = os.environ.get('MYSQL_PASSWORD')
 server.config['MYSQL_DB'] = os.environ.get('MYSQL_DB')
 server.config['MYSQL_PORT'] = os.environ.get('MYSQL_PORT')
 
-@server.route('/login', methods=['post'])
+@server.route('/login', methods=['POST'])
 def login():
     auth = request.authorization
     if not auth or not auth.username or not auth.password:
@@ -28,20 +28,20 @@ def login():
             return 'invalid credentials', 401
         else:
             return createJWT(auth.username, os.environ.get('JWT_SECRET'), True)
-        else:
+    else:
             return 'invalid credentials', 401
 
-@server.route('/validate', methods=['post'])
+@server.route('/validate', methods=['POST'])
 def validate():
     encoded_jwt = request.headers['Authorization']
     if not encoded_jwt:
         return "missing credentials", 401
-    
     try:
         decoded = jwt.decode(encoded_jwt, os.environ.get('JWT_SECRET'), algorithms=["HS256"])
-    except:
+    except jwt.ExpiredSignatureError:
+        return "token expired", 401
+    except jwt.InvalidTokenError:
         return "not authorized", 403
-    
     return decoded, 200
 
 
@@ -49,7 +49,7 @@ def createJWT(username, secret, authz):
     return jwt.encode(
         {
             "username": username,
-            "exp": datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(days=1)
+            "exp": datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(days=1),
             "iat": datetime.datetime.now(tz=datetime.timezone.utc),
             "admin": authz
         },
@@ -58,4 +58,4 @@ def createJWT(username, secret, authz):
     )
 
 if __name__ == '__main__':
-    server.run(host='0.0.0', port=5000)
+    server.run(host='0.0.0.0', port=5000)
